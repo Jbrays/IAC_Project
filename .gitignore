@@ -1,0 +1,15 @@
+# Terraform state and plan files
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Terraform provider plugins
+.terraform/
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Terraform Cloud credentials
+.terraformrc
+terraform.rc

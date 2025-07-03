@@ -1,0 +1,9 @@
+# Frameworks de prueba y calidad
+pytest
+pytest-cov
+flake8
+bandit
+
+# SDK de AWS (para que las pruebas puedan simularlo)
+boto3
+botocore
