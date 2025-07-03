@@ -16,36 +16,26 @@ table = dynamodb.Table(table_name)
 def handler(event, context):
     """
     Generates a certificate by sending a message to SQS.
-    Fetches user email from Cognito.
     """
-    print(f"Request received: {event}")
+    log_data = {"function_name": context.function_name, "aws_request_id": context.aws_request_id}
+    print(json.dumps({"level": "INFO", "message": "Request received", "details": log_data}))
 
     try:
-        # Obtener user_id y username del token
         authorizer_claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
         user_id = authorizer_claims.get('sub')
-        username = authorizer_claims.get('username') # o 'cognito:username'
+        username = authorizer_claims.get('username')
 
         if not user_id or not username:
             raise Exception("User ID or username not found in token")
-
-        # Obtener detalles del usuario desde Cognito
-        try:
-            user_info = cognito_client.admin_get_user(
-                UserPoolId=user_pool_id,
-                Username=username # Usar el username para la búsqueda
-            )
-            user_email = next((attr['Value'] for attr in user_info['UserAttributes'] if attr['Name'] == 'email'), None)
-            if not user_email:
-                raise Exception("User email not found in Cognito user attributes")
-        except Exception as e:
-            print(f"Error fetching user from Cognito: {e}")
-            return {'statusCode': 500, 'body': json.dumps({'error': 'Could not retrieve user details'})}
+        
+        log_data.update({"user_id": user_id, "username": username})
 
         body = json.loads(event.get('body', '{}'))
         course_id = body.get('courseId')
+        log_data["course_id"] = course_id
 
         if not course_id:
+            print(json.dumps({"level": "WARN", "message": "Validation failed: courseId is required", "details": log_data}))
             return {'statusCode': 400, 'body': json.dumps({'error': 'courseId is required'})}
 
         # Verificar progreso
@@ -53,22 +43,25 @@ def handler(event, context):
         enrollment_item = table.get_item(Key=enrollment_key).get('Item')
 
         if not enrollment_item or enrollment_item.get('progress', 0) < 100:
+            log_data["progress"] = enrollment_item.get('progress', 0) if enrollment_item else "N/A"
+            print(json.dumps({"level": "WARN", "message": "Course not completed", "details": log_data}))
             return {'statusCode': 400, 'body': json.dumps({'error': 'Course not completed yet'})}
         
         # Obtener nombre del curso
         course_title = table.get_item(Key={'PK': f"COURSE#{course_id}", 'SK': 'METADATA'}).get('Item', {}).get('title', 'Curso Desconocido')
+        log_data["course_title"] = course_title
 
         # Construir y enviar mensaje SQS
         message_body = {
-            'recipient': "proyect2024up@gmail.com", # Usar el email verificado para la prueba
+            'recipient': "proyect2024up@gmail.com", # Usar email verificado para la prueba
             'subject': f"¡Felicidades! Tu certificado para {course_title}",
             'body_text': f"Hola,\n\nHas completado con éxito el curso '{course_title}'. ¡Adjunto encontrarás tu certificado! (Simulado)\n\nSaludos,\nEl Equipo de Elearning.",
             'body_html': f"<html><body><h2>¡Felicidades!</h2><p>Has completado con éxito el curso <strong>{course_title}</strong>. ¡Adjunto encontrarás tu certificado! (Simulado)</p><p>Saludos,<br>El Equipo de Elearning.</p></body></html>"
         }
         
-        print(f"Sending certificate request to SQS queue for user {user_email}")
+        print(json.dumps({"level": "INFO", "message": "Sending certificate request to SQS", "details": log_data}))
         sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(message_body))
-        print("Successfully sent message to SQS.")
+        print(json.dumps({"level": "INFO", "message": "Successfully sent message to SQS", "details": log_data}))
 
         return {
             'statusCode': 200,
@@ -76,5 +69,6 @@ def handler(event, context):
         }
 
     except Exception as e:
-        print(f"Error processing request: {e}")
+        log_data["error"] = str(e)
+        print(json.dumps({"level": "ERROR", "message": "Error processing request", "details": log_data}))
         return {'statusCode': 500, 'body': json.dumps({'error': 'Internal Server Error'})}

@@ -1,25 +1,38 @@
+# logica_recursos/lambdas/getCourses/main.py
 import json
+import os
+import boto3
+
+# Inicializar el cliente de DynamoDB
+dynamodb = boto3.resource('dynamodb')
+table_name = os.environ.get('DYNAMODB_TABLE_NAME', 'ElearningPlatformTable')
+table = dynamodb.Table(table_name)
 
 def handler(event, context):
     """
-    A simple handler function that returns a static list of courses.
+    Fetches all courses from the DynamoDB table.
     """
-    print("Request received for getCourses")
-    
-    courses = [
-        {"id": "c001", "title": "Introduction to Terraform"},
-        {"id": "c002", "title": "Advanced AWS with Python"},
-        {"id": "c003", "title": "Serverless Architectures"}
-    ]
-    
-    response = {
-        "statusCode": 200,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*" # CORS for testing
-        },
-        "body": json.dumps(courses)
-    }
-    
-    print("Returning response")
-    return response
+    log_data = {"event": event, "function_name": context.function_name, "aws_request_id": context.aws_request_id}
+    print(json.dumps({"level": "INFO", "message": "Request received", "details": log_data}))
+
+    try:
+        response = table.scan()
+        courses = response.get('Items', [])
+        
+        print(json.dumps({"level": "INFO", "message": "Successfully scanned courses", "details": {"course_count": len(courses)}}))
+
+        return {
+            'statusCode': 200,
+            'headers': {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            'body': json.dumps(courses)
+        }
+    except Exception as e:
+        log_data["error"] = str(e)
+        print(json.dumps({"level": "ERROR", "message": "Failed to scan DynamoDB table", "details": log_data}))
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Internal Server Error'})
+        }

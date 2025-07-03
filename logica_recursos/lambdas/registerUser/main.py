@@ -14,22 +14,24 @@ def handler(event, context):
     Handles user registration.
     Expects a JSON body with 'name' and 'email'.
     """
-    print(f"Request received: {event}")
+    log_data = {"function_name": context.function_name, "aws_request_id": context.aws_request_id}
+    print(json.dumps({"level": "INFO", "message": "Request received", "details": log_data}))
 
     try:
-        # Parsear el cuerpo de la solicitud
         body = json.loads(event.get('body', '{}'))
         user_name = body.get('name')
         user_email = body.get('email')
 
+        log_data["user_email"] = user_email
+
         if not user_name or not user_email:
-            print("Validation Failed: name and email are required.")
+            log_data["validation_error"] = "Name and email are required"
+            print(json.dumps({"level": "WARN", "message": "Validation failed", "details": log_data}))
             return {
                 'statusCode': 400,
                 'body': json.dumps({'error': 'Name and email are required'})
             }
 
-        # Crear el item para DynamoDB
         user_id = str(uuid.uuid4())
         item = {
             'PK': f"USER#{user_id}",
@@ -37,25 +39,23 @@ def handler(event, context):
             'userId': user_id,
             'name': user_name,
             'email': user_email,
-            'createdAt': context.aws_request_id # Usamos el request ID como timestamp simple
+            'createdAt': context.aws_request_id
         }
 
-        # Guardar en DynamoDB
-        print(f"Putting item into DynamoDB: {item}")
+        log_data["item_to_put"] = item
+        print(json.dumps({"level": "INFO", "message": "Putting item into DynamoDB", "details": log_data}))
         table.put_item(Item=item)
-        print("Successfully put item in DynamoDB")
+        print(json.dumps({"level": "INFO", "message": "Successfully put item in DynamoDB", "details": log_data}))
 
         return {
             'statusCode': 201,
-            'headers': {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
+            'headers': {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
             'body': json.dumps({'userId': user_id, 'message': 'User created successfully'})
         }
 
     except Exception as e:
-        print(f"Error processing request: {e}")
+        log_data["error"] = str(e)
+        print(json.dumps({"level": "ERROR", "message": "Error processing request", "details": log_data}))
         return {
             'statusCode': 500,
             'body': json.dumps({'error': 'Internal Server Error'})
