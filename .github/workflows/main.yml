@@ -4,10 +4,10 @@ name: CI/CD Pipeline for Elearning Platform
 on:
   push:
     branches:
-      - main # O la rama principal que uses
+      - master # O la rama principal que uses
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   quality-and-security-checks:
@@ -48,3 +48,38 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.0
         with:
           working_directory: .
+
+  deploy-to-aws:
+    name: Deploy to AWS
+    needs: quality-and-security-checks # Depende del éxito del job anterior
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push' # Solo desplegar en push a master
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0 # O la versión que uses
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -no-color
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
