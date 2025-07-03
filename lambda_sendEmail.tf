@@ -48,9 +48,9 @@ resource "aws_iam_policy" "send_email_lambda_policy" {
         Resource = aws_sqs_queue.email_notifications.arn
       },
       {
-        Action   = ["ses:SendEmail"],
+        Action   = ["ses:SendEmail", "ses:SendRawEmail"],
         Effect   = "Allow",
-        Resource = "*" # En producción, se puede restringir a un ARN de identidad de SES
+        Resource = aws_ses_email_identity.main.arn
       }
     ]
   })

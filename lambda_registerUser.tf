@@ -37,9 +37,12 @@ resource "aws_iam_policy" "register_user_lambda_policy" {
         Resource = "arn:aws:logs:*:*:*"
       },
       {
-        Action   = ["dynamodb:PutItem"], # Permiso para escribir
+        Action   = ["dynamodb:PutItem", "dynamodb:Query"],
         Effect   = "Allow",
-        Resource = aws_dynamodb_table.main_table.arn
+        Resource = [
+          aws_dynamodb_table.main_table.arn,
+          "${aws_dynamodb_table.main_table.arn}/index/EmailIndex"
+        ]
       }
     ]
   })

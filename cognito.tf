@@ -30,6 +30,17 @@ resource "aws_cognito_user_pool" "main" {
     }
   }
 
+  schema {
+    name                = "dynamo_db_user_id"
+    attribute_data_type = "String"
+    mutable             = true
+    required            = false
+    string_attribute_constraints {
+      min_length = 36
+      max_length = 36
+    }
+  }
+
   # Política de contraseñas
   password_policy {
     minimum_length    = 8

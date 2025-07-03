@@ -29,39 +29,11 @@ Abre el archivo `variables.tf` y modifica los valores por defecto si es necesari
 
 -   **`sender_email`**: Asegúrate de que el valor por defecto de esta variable sea una dirección de correo electrónico a la que tengas acceso y que puedas verificar.
 
-### 3. Verificación de Identidad en SES
+### 3. Despliegue Inicial y Verificación de Email
 
-Para que el sistema pueda enviar correos, debes verificar tu identidad de remitente en Amazon SES.
+Este proyecto utiliza Terraform para gestionar la verificación de la identidad de correo en SES. Esto introduce un paso manual durante el primer despliegue.
 
-1.  Navega a la consola de **Amazon Simple Email Service (SES)** en tu cuenta de AWS.
-2.  Ve a **Verified identities** y haz clic en **Create identity**.
-3.  Selecciona "Email address", introduce la misma dirección que configuraste en `variables.tf` y sigue los pasos.
-4.  Recibirás un correo de verificación. Haz clic en el enlace para completar el proceso.
-5.  **Importante:** Por defecto, tu cuenta de SES estará en modo "sandbox", lo que significa que solo podrás enviar correos *a* direcciones también verificadas.
-
-### 4. Despliegue con GitHub Actions (Método Recomendado)
-
-1.  **Sube el código a tu repositorio de GitHub.**
-
-2.  **Configura los Secrets de GitHub:**
-    *   En tu repositorio de GitHub, ve a `Settings` > `Secrets and variables` > `Actions`.
-    *   Crea los siguientes "Repository secrets" con tus credenciales de AWS:
-        *   `AWS_ACCESS_KEY_ID`
-        *   `AWS_SECRET_ACCESS_KEY`
-        *   `AWS_SESSION_TOKEN` (necesario si usas credenciales temporales de SSO).
-
-3.  **Activa el Pipeline:**
-    *   Haz un `push` a la rama `main` de tu repositorio.
-        ```bash
-        git push origin main
-        ```
-    *   Ve a la pestaña **"Actions"** en tu repositorio de GitHub para ver el pipeline ejecutarse. El pipeline se encargará de probar, analizar y desplegar la infraestructura.
-
-### 5. Despliegue Manual (Alternativa)
-
-Si prefieres desplegar desde tu terminal:
-
-1.  **Autentícate en AWS:**
+1.  **Autentícate en AWS:** Asegúrate de que tu AWS CLI esté configurada.
     ```bash
     aws sso login --profile TU_PERFIL # Si usas SSO
     ```
@@ -73,5 +45,27 @@ Si prefieres desplegar desde tu terminal:
 
 3.  **Aplica la configuración:**
     ```bash
-    terraform apply -auto-approve
+    terraform apply
     ```
+    - Terraform comenzará a crear los recursos y se **pausará** al llegar al recurso `aws_ses_email_identity`.
+    - En este momento, **revisa la bandeja de entrada** del correo especificado en la variable `sender_email`.
+    - **Haz clic en el enlace de verificación** que te ha enviado Amazon Web Services.
+    - Una vez verificado, Terraform detectará el cambio y completará el despliegue.
+
+### 4. Despliegue Automatizado con GitHub Actions
+
+Una vez que la identidad de SES ha sido verificada en el primer `apply`, los despliegues futuros a través del pipeline serán totalmente automáticos.
+
+1.  **Sube el código a tu repositorio de GitHub.**
+
+2.  **Configura los Secrets de GitHub:**
+    *   En tu repositorio de GitHub, ve a `Settings` > `Secrets and variables` > `Actions`.
+    *   Crea los siguientes "Repository secrets":
+        *   `AWS_ACCESS_KEY_ID`
+        *   `AWS_SECRET_ACCESS_KEY`
+        *   `AWS_SESSION_TOKEN` (necesario si usas credenciales temporales).
+
+3.  **Activa el Pipeline:**
+    *   Haz un `push` a la rama `main`.
+    *   Ve a la pestaña **"Actions"** en tu repositorio para ver el pipeline ejecutarse.
+
